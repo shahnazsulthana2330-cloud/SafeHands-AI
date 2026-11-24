@@ -6,6 +6,7 @@ import pypdfium2 as pdfium
 import urllib.request
 import urllib.error
 import streamlit as st
+import shutil
 
 from pypdf import PdfReader
 
@@ -29,10 +30,15 @@ try:
         pytesseract.pytesseract.tesseract_cmd = tesseract_path
 except ImportError:
     pytesseract = None
-TESSERACT_PATH = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+TESSERACT_PATH = shutil.which("tesseract")
 
 
 def extract_scanned_pdf_text(pdf_bytes):
+    if not TESSERACT_PATH:
+        raise RuntimeError(
+            "Tesseract OCR is not installed on the server."
+        )
+
     pdf = pdfium.PdfDocument(pdf_bytes)
     extracted_pages = []
 
@@ -43,22 +49,31 @@ def extract_scanned_pdf_text(pdf_bytes):
         image.save(image_buffer, format="PNG")
 
         result = subprocess.run(
-            [TESSERACT_PATH, "stdin", "stdout", "-l", "eng"],
+            [
+                TESSERACT_PATH,
+                "stdin",
+                "stdout",
+                "-l",
+                "eng"
+            ],
             input=image_buffer.getvalue(),
             capture_output=True
         )
 
         if result.returncode != 0:
             raise RuntimeError(
-                result.stderr.decode("utf-8", errors="replace")
+                result.stderr.decode(
+                    "utf-8", errors="replace"
+                )
             )
 
         extracted_pages.append(
-            result.stdout.decode("utf-8", errors="replace")
+            result.stdout.decode(
+                "utf-8", errors="replace"
+            )
         )
 
     return "\n".join(extracted_pages).strip()
-
 st.set_page_config(
     page_title="SafeHands AI",
     page_icon="🛡️",
